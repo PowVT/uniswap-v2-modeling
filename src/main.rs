@@ -6,7 +6,7 @@ use std::collections::HashMap;
 struct UniswapV2Pool {
     base_token_reserve: f64, // WETH, USDC, etc...
     token_a_reserve: f64,
-    k: f64, // invariant
+    k: f64,
     price: f64,
     total_lp_tokens: f64,
     user_lp_tokens: HashMap<String, f64>, // user name, LP tokens
@@ -145,7 +145,7 @@ fn main() {
     let mut uniswap_pool: UniswapV2Pool = UniswapV2Pool::new();
 
     // Add more liquidity to the pool
-    uniswap_pool.add_liquidity(5000.0, 10000.0, "Alice".to_string());
+    uniswap_pool.add_liquidity(50000.0, 100000.0, "Alice".to_string());
 
     // Add more liquidity to the pool
     uniswap_pool.add_liquidity(5000.0, 10000.0, "Bob".to_string());
@@ -156,7 +156,7 @@ fn main() {
     // Alice removes liquidity from the pool
     uniswap_pool.remove_liquidity("Alice".to_string());
 
-    println!("======== Pool status ========");
+    println!("=== Pool status ===");
 
     // Get the current reserves of the pool
     let (base_token_reserve, token_a_reserve) = uniswap_pool.get_reserves();
