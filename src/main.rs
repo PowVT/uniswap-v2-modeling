@@ -43,10 +43,10 @@ impl UniswapV2Pool {
         if self.base_token_reserve as u64 == 0 && self.token_a_reserve as u64 == 0 {
             user_lp_tokens = (amount_base * amount_a).sqrt();
         } else {
+            // if this is not the first liquidity add, use the minimum of x and y to calculate the amount of LP tokens
+            // https://etherscan.io/address/0xc2adda861f89bbb333c90c492cb837741916a225#code#L422
             let x: f64 = amount_base * self.total_lp_tokens / self.base_token_reserve;
             let y: f64 = amount_a * self.total_lp_tokens / self.token_a_reserve;
-            // use the minimum of x and y to calculate the amount of LP tokens
-            // https://etherscan.io/address/0xc2adda861f89bbb333c90c492cb837741916a225#code#L422
             if x < y {
                 user_lp_tokens = x;
             } else {
