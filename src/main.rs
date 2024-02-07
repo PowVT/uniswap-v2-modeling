@@ -28,6 +28,7 @@ impl UniswapV2Pool {
     // Function to provide liquidity to the pool
     fn add_liquidity(&mut self, amount_base: f64, amount_a: f64, user_name: String) {
         let user: String = user_name.clone();
+        let user_lp_tokens: f64;
         // if this is not the first time liquidity is added, ensure the price does not change
         if self.base_token_reserve as u64 > 0 && self.token_a_reserve as u64 > 0 {
             assert_eq!(
@@ -37,16 +38,34 @@ impl UniswapV2Pool {
             );
         }
 
+        // if this is the first liquidity added, use sqrt(x*y) to get the amount of LP tokens
+        // https://etherscan.io/address/0xc2adda861f89bbb333c90c492cb837741916a225#code#L419
+        if self.base_token_reserve as u64 == 0 && self.token_a_reserve as u64 == 0 {
+            user_lp_tokens = (amount_base * amount_a).sqrt();
+        } else {
+            let x: f64 = amount_base * self.total_lp_tokens / self.base_token_reserve;
+            let y: f64 = amount_a * self.total_lp_tokens / self.token_a_reserve;
+            // use the minimum of x and y to calculate the amount of LP tokens
+            // https://etherscan.io/address/0xc2adda861f89bbb333c90c492cb837741916a225#code#L422
+            if x < y {
+                user_lp_tokens = x;
+            } else {
+                user_lp_tokens = y;
+            }
+        }
+
         // Update the reserves
         self.base_token_reserve += amount_base;
         self.token_a_reserve += amount_a;
         self.k = self.base_token_reserve * self.token_a_reserve;
         self.price = self.base_token_reserve / self.token_a_reserve;
 
-        // Calculate the LP tokens to be issued to the user
-        let user_lp_tokens = (amount_base * amount_a).sqrt();
+        // Update the LP tokens data
         self.total_lp_tokens += user_lp_tokens;
-        self.user_lp_tokens.insert(user.clone(), user_lp_tokens);
+        self.user_lp_tokens.insert(
+            user.clone(),
+            self.user_lp_tokens.get(&user).unwrap_or(&0.0) + user_lp_tokens,
+        );
 
         println!("=== {} Adds liquidity ===", user);
 
@@ -56,11 +75,15 @@ impl UniswapV2Pool {
         );
 
         println!(
-            "{} received {} LP tokens. Total LP tokens={}\n",
-            user, user_lp_tokens, self.total_lp_tokens
+            "{} received {} LP tokens. Users total LP tokens:{}. Pool total LP tokens:{}\n",
+            user,
+            user_lp_tokens,
+            self.user_lp_tokens.get(&user).unwrap_or(&0.0),
+            self.total_lp_tokens
         );
     }
 
+    // Function to remove liquidity from the pool
     fn remove_liquidity(&mut self, user_name: String) {
         let user: String = user_name.clone();
         if let Some(user_lp_tokens) = self.user_lp_tokens.get(&user) {
@@ -145,27 +168,30 @@ fn main() {
     let mut uniswap_pool: UniswapV2Pool = UniswapV2Pool::new();
 
     // Add more liquidity to the pool
-    uniswap_pool.add_liquidity(50000.0, 100000.0, "Alice".to_string());
-
-    // Add more liquidity to the pool
-    uniswap_pool.add_liquidity(5000.0, 10000.0, "Bob".to_string());
+    uniswap_pool.add_liquidity(500_000.0, 5_000_000.0, "Alice".to_string());
 
     // Swap tokens in the pool
-    uniswap_pool.swap_tokens(50.0, "token_base");
+    uniswap_pool.swap_tokens(1000.0, "token_base");
+
+    // Add more liquidity to the pool
+    uniswap_pool.add_liquidity(
+        uniswap_pool.price * 5_000_000.0,
+        5_000_000.0,
+        "Bob".to_string(),
+    );
 
     // Alice removes liquidity from the pool
     uniswap_pool.remove_liquidity("Alice".to_string());
 
+    // Get the current reserves and price of the pool
     println!("=== Pool status ===");
 
-    // Get the current reserves of the pool
     let (base_token_reserve, token_a_reserve) = uniswap_pool.get_reserves();
     println!(
         "Current reserves: Base={}, a={}",
         base_token_reserve, token_a_reserve
     );
 
-    // Get the current price of the pool
     let price = uniswap_pool.get_price();
     println!("Current price: {}", price);
 }
